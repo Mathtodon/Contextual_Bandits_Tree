@@ -14,7 +14,7 @@ Currently a proportion z-test is being used to test for statistical significance
 
 [Algorithm Visualization](Contextual%20Bandits%20Decision%20Tree%20Visual.pdf)
 
-![](decision_tree.png)
+![](Decision_Tree_Visual.png)
 
 
 ## Usage
