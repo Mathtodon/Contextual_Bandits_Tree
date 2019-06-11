@@ -16,6 +16,8 @@ The tree consists of nodes which will choose the best feature and value to split
 ## Usage
 [Walk Through of Decision Tree Usage](Contextual_Bandits_Decision_Tree_Walk_Through.ipynb)
 
+[Simulated Data Creation](Simulated%20Data.ipynb)
+
 
 ## Requirements/Dependencies
 * python 3
