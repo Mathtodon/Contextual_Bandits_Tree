@@ -8,7 +8,7 @@ The orignal version was only designed for use with binary variables only however
 additions have been made to allow for continuous and categorical variables.
 A statistical test has also been added to each feature-value split to ensure only statistically significant results are used.
 
-The tree consists of nodes which will choose the best feature and value to split on according to expected maximum reward when using the variable to select the best action. Thompson Sampling is then used at each leaf node by modeling each possible action with a Beta distribution with a = #clicks and b=#opens.
+The tree consists of nodes which will choose the best feature and value to split on according to expected maximum reward when using the variable to select the best action. Action selection is then achieved at each leaf node by using Thompson Sampling, that is, modeling each possible action with a Beta distribution with a = #clicks and b=#opens.
 
 ![](decision_tree.png)
 
