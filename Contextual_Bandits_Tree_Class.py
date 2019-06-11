@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 from statsmodels.stats.proportion import proportions_ztest
 import random
-from timeit import default_timer as timer
 
 
 '''
