@@ -13,6 +13,14 @@ and a statistical test has been added to each feature-value split to ensure only
 ![](decision_tree.png)
 
 
+## Authors
+* **Feraud, R.** - *Initial work* - [Random Forest for the Contextual Bandit Problem](https://arxiv.org/pdf/1504.06952.pdf)
+* **Allesarido, R.** - *Initial work* - [Random Forest for the Contextual Bandit Problem](https://arxiv.org/pdf/1504.06952.pdf)
+* **Urvoy, T.** - *Initial work* - [Random Forest for the Contextual Bandit Problem](https://arxiv.org/pdf/1504.06952.pdf)
+* **Clerot, F.** - *Initial work* - [Random Forest for the Contextual Bandit Problem](https://arxiv.org/pdf/1504.06952.pdf)
+
+See also the list of [contributors](https://github.com/your/project/contributors) who participated in this project.
+
 ## Acknowledgments
 The decision tree python code structure was heavily inspired by the following sources:
 
