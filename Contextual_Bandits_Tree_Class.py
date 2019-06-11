@@ -24,7 +24,7 @@ https://towardsdatascience.com/random-forests-and-decision-trees-from-scratch-in
 https://machinelearningmastery.com/implement-decision-tree-algorithm-scratch-python/
 '''
 
-class AB_DecisionTree:
+class Contextual_Bandits_Tree:
 
     def __init__(self, max_depth = 5, min_leaf_opens = 1000, min_leaf_clicks = 10, max_p_value = 0.1):
         self.max_depth = max_depth
@@ -46,10 +46,10 @@ class AB_DecisionTree:
     def predict(self, X, pred_type = 'class'):
         return self.tree.predict(X, pred_type)
 
-    def get_json(self):
-        return self.tree.get_json()
+    def get_tree_dict(self):
+        return self.tree.get_tree_dict()
 
-    def policy_evaluation(self, data):
+    def policy_evaluation(self, data, print_info = False):
         data_for_calc = data.copy()
         click_column_name = self.tree.click_column_name
         option_column_name = self.tree.option_column_name
@@ -61,7 +61,7 @@ class AB_DecisionTree:
         choice_probs = self.tree.predict(data_for_calc, pred_type = 'choice_probs').apply(pd.Series)
         data_for_calc = pd.concat([data_for_calc, choice_probs], axis=1)
 
-        pivot = data_for_calc.groupby([option_column_name,'pred_node'])[click_column_name].agg({'opens': 'count', 'clicks': 'sum', 'mean':'mean'}).unstack(option_column)
+        pivot = data_for_calc.groupby([option_column_name,'pred_node'])[click_column_name].agg({'opens': 'count', 'clicks': 'sum', 'mean':'mean'}).unstack(option_column_name)
         pivot = pivot.fillna(0)
         pivot.columns = ['_'.join(col).strip() for col in pivot.columns.values]
         pivot.reset_index(inplace=True)
@@ -109,9 +109,9 @@ class AB_DecisionTree:
 
         pred_lift = (pred_ctor - actual_ctor)/actual_ctor
         potential_lift = (potential_ctor - actual_ctor)/actual_ctor
-
-        print("Actual CTOR: {}%  Pred CTOR: {}%  Potential CTOR: {}%".format(np.round(actual_ctor*100,2), np.round(pred_ctor*100,2), np.round(potential_ctor*100,2)))
-        print("Pred Lift: {}% Potential Lift {}%".format(np.round(pred_lift*100,2),np.round(potential_lift*100,2)))
+        if print_info == True:
+            print("Actual CTOR: {}%  Pred CTOR: {}%  Potential CTOR: {}%".format(np.round(actual_ctor*100,2), np.round(pred_ctor*100,2), np.round(potential_ctor*100,2)))
+            print("Pred Lift: {}% Potential Lift {}%".format(np.round(pred_lift*100,2),np.round(potential_lift*100,2)))
         return(pred_lift, pivot)
 
 class Node:
