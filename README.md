@@ -1,5 +1,5 @@
-# Contextual_Bandits_Tree
-Contains Code for Contextual Bandits AB Testing Treee
+# Contextual_Bandits_Decision_Tree
+Contains Code for Contextual Bandits Decision Tree
 
 This repo houses an implementation of the decision tree designed by
 Feraud, R. , Allesarido, R. , Urvoy, T. & Clerot, F.
