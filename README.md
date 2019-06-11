@@ -10,11 +10,12 @@ A statistical test has also been added to each feature-value split to ensure onl
 
 The tree consists of nodes which will choose the best feature and value to split on according to expected maximum reward when using the variable to select the best action.
 
+![](decision_tree.png)
+
+
 ## Usage
 [Walk Through of Decision Tree Usage](Contextual_Bandits_Decision_Tree_Walk_Through.ipynb)
 
-
-![](decision_tree.png)
 
 ## Requirements/Dependencies
 * python 3
