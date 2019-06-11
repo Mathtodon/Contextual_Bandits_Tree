@@ -10,6 +10,8 @@ A statistical test has also been added to each feature-value split to ensure onl
 
 The tree consists of nodes which will choose the best feature and value to split on according to expected maximum reward when using the variable to select the best action. Action selection is then achieved at each leaf node by using Thompson Sampling, that is, modeling each possible action with a Beta distribution with a = #clicks and b=#opens.
 
+Currently a proportion z-test is being used to test for statistical significance so only 2 actions are available in its current form, however I plan on switching to a proportion chi square test to allow for more actions.
+
 ![](decision_tree.png)
 
 
