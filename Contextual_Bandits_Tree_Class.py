@@ -6,6 +6,18 @@ from timeit import default_timer as timer
 
 
 '''
+Below is an implementation of the decision tree designed by
+Feraud, R. , Allesarido, R. , Urvoy, T. & Clerot, F.
+Random Forest for the Contextual Bandit Problem
+https://arxiv.org/pdf/1504.06952.pdf
+
+The orignal version was only designed for use with binary variables.
+Additions have been made to allow for continuous and categorical variables,
+and a statistical test has been added to each feature-value split to ensure only statistically significant results are used.
+
+
+The decision tree python code structure was heavily inspired by the following sources:
+
 https://lethalbrains.com/learn-ml-algorithms-by-coding-decision-trees-439ac503c9a4
 https://medium.com/@curiousily/building-a-decision-tree-from-scratch-in-python-machine-learning-from-scratch-part-ii-6e2e56265b19
 https://towardsdatascience.com/random-forests-and-decision-trees-from-scratch-in-python-3e4fa5ae4249
@@ -36,6 +48,71 @@ class AB_DecisionTree:
 
     def get_json(self):
         return self.tree.get_json()
+
+    def policy_evaluation(self, data):
+        data_for_calc = data.copy()
+        click_column_name = self.tree.click_column_name
+        option_column_name = self.tree.option_column_name
+        data_for_calc['pred_node'] = self.tree.predict(data_for_calc, pred_type = 'node')
+        data_for_calc['pred_class'] = self.tree.predict(data_for_calc, pred_type = 'class')
+        options = data_for_calc.pred_class.unique()
+        data_for_calc['pred_p_value'] = self.tree.predict(data_for_calc, pred_type = 'p_value')
+
+        choice_probs = self.tree.predict(data_for_calc, pred_type = 'choice_probs').apply(pd.Series)
+        data_for_calc = pd.concat([data_for_calc, choice_probs], axis=1)
+
+        pivot = data_for_calc.groupby([option_column_name,'pred_node'])[click_column_name].agg({'opens': 'count', 'clicks': 'sum', 'mean':'mean'}).unstack(option_column)
+        pivot = pivot.fillna(0)
+        pivot.columns = ['_'.join(col).strip() for col in pivot.columns.values]
+        pivot.reset_index(inplace=True)
+
+        pivot_class = pd.DataFrame(data_for_calc.groupby(['pred_node']).pred_class.max())
+        pivot_class.reset_index(inplace=True)
+
+        pivot_p_value = pd.DataFrame(data_for_calc.groupby(['pred_node']).pred_p_value.max())
+        pivot_p_value.reset_index(inplace=True)
+
+        pivot_choice_probs = pd.DataFrame(data_for_calc.groupby(['pred_node'])[choice_probs.columns].max())
+        pivot_choice_probs.columns = [str(col) + '_prob' for col in pivot_choice_probs.columns]
+        pivot_choice_probs.reset_index(inplace=True)
+
+        pivot = pivot.merge(pivot_class, left_on='pred_node', right_on='pred_node')
+        pivot = pivot.merge(pivot_p_value, left_on='pred_node', right_on='pred_node')
+        pivot = pivot.merge(pivot_choice_probs, left_on='pred_node', right_on='pred_node')
+
+        pivot['pred_class'] = pivot['pred_class'].apply(lambda x: "mean_{}".format(x))
+        #pivot['mean_of_choice'] = pivot.lookup(pivot.index, pivot['pred_class'])
+
+        for option in options:
+            pivot['{}_weight'.format(option)] = pivot['mean_{}'.format(option)] * pivot['{}_prob'.format(option)]
+
+        pivot['mean_of_policy'] = pivot[[s for s in pivot.columns if "_weight" in s]].sum(axis=1)
+
+        pivot['total_opens'] = pivot[[s for s in pivot.columns if "opens_" in s]].sum(axis=1)
+        pivot['total_clicks'] = pivot[[s for s in pivot.columns if "clicks_" in s]].sum(axis=1)
+        pivot['total_mean'] = pivot['total_clicks']/pivot['total_opens']
+        #pivot['total_incremental_clicks'] = (pivot['mean_of_choice'] - pivot['total_mean']) * pivot['total_opens']
+        pivot['total_incremental_clicks'] = (pivot['mean_of_policy'] - pivot['total_mean']) * pivot['total_opens']
+        pivot['potential_incremental_clicks'] = (pivot[[s for s in pivot.columns if "mean_" in s]].max(axis=1) - pivot['total_mean']) * pivot['total_opens']
+        total_incremental_clicks = np.round(pivot['total_incremental_clicks'].sum(),0)
+        potential_incremental_clicks = np.round(pivot['potential_incremental_clicks'].sum(),0)
+
+        actual_clicks = pivot.total_clicks.sum()
+        actual_opens = pivot.total_opens.sum()
+        actual_ctor = actual_clicks/actual_opens
+
+        pred_clicks = actual_clicks + total_incremental_clicks
+        pred_ctor = pred_clicks / actual_opens
+
+        potential_clicks = actual_clicks + potential_incremental_clicks
+        potential_ctor = potential_clicks / actual_opens
+
+        pred_lift = (pred_ctor - actual_ctor)/actual_ctor
+        potential_lift = (potential_ctor - actual_ctor)/actual_ctor
+
+        print("Actual CTOR: {}%  Pred CTOR: {}%  Potential CTOR: {}%".format(np.round(actual_ctor*100,2), np.round(pred_ctor*100,2), np.round(potential_ctor*100,2)))
+        print("Pred Lift: {}% Potential Lift {}%".format(np.round(pred_lift*100,2),np.round(potential_lift*100,2)))
+        return(pred_lift, pivot)
 
 class Node:
     tree_nodes = 0
@@ -343,130 +420,12 @@ class Node:
                 node = self.right
         return node.predict_row(xi, pred_type)
 
-    def get_json(self):
-        '''generates a dictionary format of the tree which can be formatted into a json'''
+    def get_tree_dict(self):
+        '''generates a dictionary format of the tree which can be formatted into a json by the user'''
         if self.is_leaf:
             return {"node_id":self.node_id,"choice":self.choice, "incremental_clicks":self.incremental_clicks, "p_value":self.p_value, 'pivot':self.pivot}
         else:
             question = "{} {} {}".format(self.split_column, self.split_operator, self.split_value)
-            json = {question:{'yes':self.left.get_json(),'no':self.right.get_json()}}
+            tree_dict = {question:{'yes':self.left.get_tree_dict(),'no':self.right.get_tree_dict()}}
 
-            return json
-
-def policy_evaluation(tree, data):
-    data_for_calc = data.copy()
-    click_column_name = tree.tree.click_column_name
-    option_column_name = tree.tree.option_column_name
-    data_for_calc['pred_node'] = tree.predict(data_for_calc, pred_type = 'node')
-    data_for_calc['pred_class'] = tree.predict(data_for_calc, pred_type = 'class')
-    options = data_for_calc.pred_class.unique()
-    data_for_calc['pred_p_value'] = tree.predict(data_for_calc, pred_type = 'p_value')
-
-    choice_probs = tree.predict(data_for_calc, pred_type = 'choice_probs').apply(pd.Series)
-    data_for_calc = pd.concat([data_for_calc, choice_probs], axis=1)
-
-    pivot = data_for_calc.groupby([option_column_name,'pred_node'])[click_column_name].agg({'opens': 'count', 'clicks': 'sum', 'mean':'mean'}).unstack(option_column)
-    pivot = pivot.fillna(0)
-    pivot.columns = ['_'.join(col).strip() for col in pivot.columns.values]
-    pivot.reset_index(inplace=True)
-
-    pivot_class = pd.DataFrame(data_for_calc.groupby(['pred_node']).pred_class.max())
-    pivot_class.reset_index(inplace=True)
-
-    pivot_p_value = pd.DataFrame(data_for_calc.groupby(['pred_node']).pred_p_value.max())
-    pivot_p_value.reset_index(inplace=True)
-
-    pivot_choice_probs = pd.DataFrame(data_for_calc.groupby(['pred_node'])[choice_probs.columns].max())
-    pivot_choice_probs.columns = [str(col) + '_prob' for col in pivot_choice_probs.columns]
-    pivot_choice_probs.reset_index(inplace=True)
-
-    pivot = pivot.merge(pivot_class, left_on='pred_node', right_on='pred_node')
-    pivot = pivot.merge(pivot_p_value, left_on='pred_node', right_on='pred_node')
-    pivot = pivot.merge(pivot_choice_probs, left_on='pred_node', right_on='pred_node')
-
-    pivot['pred_class'] = pivot['pred_class'].apply(lambda x: "mean_{}".format(x))
-    #pivot['mean_of_choice'] = pivot.lookup(pivot.index, pivot['pred_class'])
-
-    for option in options:
-        pivot['{}_weight'.format(option)] = pivot['mean_{}'.format(option)] * pivot['{}_prob'.format(option)]
-
-    pivot['mean_of_policy'] = pivot[[s for s in pivot.columns if "_weight" in s]].sum(axis=1)
-
-    pivot['total_opens'] = pivot[[s for s in pivot.columns if "opens_" in s]].sum(axis=1)
-    pivot['total_clicks'] = pivot[[s for s in pivot.columns if "clicks_" in s]].sum(axis=1)
-    pivot['total_mean'] = pivot['total_clicks']/pivot['total_opens']
-    #pivot['total_incremental_clicks'] = (pivot['mean_of_choice'] - pivot['total_mean']) * pivot['total_opens']
-    pivot['total_incremental_clicks'] = (pivot['mean_of_policy'] - pivot['total_mean']) * pivot['total_opens']
-    pivot['potential_incremental_clicks'] = (pivot[[s for s in pivot.columns if "mean_" in s]].max(axis=1) - pivot['total_mean']) * pivot['total_opens']
-    total_incremental_clicks = np.round(pivot['total_incremental_clicks'].sum(),0)
-    potential_incremental_clicks = np.round(pivot['potential_incremental_clicks'].sum(),0)
-
-    actual_clicks = pivot.total_clicks.sum()
-    actual_opens = pivot.total_opens.sum()
-    actual_ctor = actual_clicks/actual_opens
-
-    pred_clicks = actual_clicks + total_incremental_clicks
-    pred_ctor = pred_clicks / actual_opens
-
-    potential_clicks = actual_clicks + potential_incremental_clicks
-    potential_ctor = potential_clicks / actual_opens
-
-    pred_lift = (pred_ctor - actual_ctor)/actual_ctor
-    potential_lift = (potential_ctor - actual_ctor)/actual_ctor
-
-    print("Actual CTOR: {}%  Pred CTOR: {}%  Potential CTOR: {}%".format(np.round(actual_ctor*100,2), np.round(pred_ctor*100,2), np.round(potential_ctor*100,2)))
-    print("Pred Lift: {}% Potential Lift {}%".format(np.round(pred_lift*100,2),np.round(potential_lift*100,2)))
-    return(pred_lift, pivot)
-
-import os
-abspath = os.path.abspath(__file__)
-dname = os.path.dirname(abspath)
-os.chdir(dname)
-
-df_A = pd.read_csv('option_A.csv')
-df_B = pd.read_csv('option_B.csv')
-
-df_A = df_A.drop(['range_key','wTrainTestFlag','enroll_dt', 'geo_latitude', 'geo_longitude','nights', 'point_bal_cnt'], axis = 1)
-df_B = df_B.drop(['range_key','wTrainTestFlag','enroll_dt', 'geo_latitude', 'geo_longitude','nights', 'point_bal_cnt'], axis = 1)
-
-#df_A = df_A.drop(['range_key','wTrainTestFlag','geo_latitude', 'geo_longitude'], axis = 1)
-#df_B = df_B.drop(['range_key','wTrainTestFlag','geo_latitude', 'geo_longitude'], axis = 1)
-
-df_A = df_A.rename(columns = {'wAccepted':'click'})
-df_B = df_B.rename(columns = {'wAccepted':'click'})
-
-df_A['option'] = 'A'
-df_B['option'] = 'B'
-
-df_combined = df_A.append(df_B)
-df_combined.reset_index(drop=True,inplace=True)
-df_combined.columns = df_combined.columns.str.replace(' ', '_')
-values = {}
-for column in df_combined.columns:
-    if len(df_combined[column].unique()) <=3:
-        values[column] = 0
-    else:
-        values[column] = df_combined[column].mean()
-df_combined = df_combined.fillna(value=values)
-
-def train_test_split(df, test_size):
-
-    if isinstance(test_size, float):
-        test_size = round(test_size * len(df))
-
-    indices = df.index.tolist()
-    test_indices = random.sample(population = indices, k = test_size)
-
-    test_df = df.loc[test_indices]
-    train_df = df.drop(test_indices)
-
-    return train_df, test_df
-
-train_df, test_df = train_test_split(df_combined, .2)
-
-start = timer()
-tree = AB_DecisionTree(max_depth = 3).fit(train_df)
-end = timer()
-print('{} Seconds'.format(np.round(end - start,3)))
-
-json = tree.get_json()
+            return tree_dict
