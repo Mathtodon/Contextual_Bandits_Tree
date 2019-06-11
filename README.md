@@ -12,9 +12,9 @@ The tree consists of nodes which will choose the best feature and value to split
 
 Currently a proportion z-test is being used to test for statistical significance so only 2 actions are available in its current form, however I plan on switching to a proportion chi square test to allow for more actions.
 
-![](decision_tree.png)
+[Algorithm Visualization](Contextual%20Bandits%20Decision%20Tree%20Visual.pdf)
 
-![](Contextual%20Bandits%20Decision%20Tree%20Visual.pdf)
+![](decision_tree.png)
 
 
 ## Usage
