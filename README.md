@@ -4,9 +4,9 @@ This repo houses a python implementation of the decision tree designed by
 Feraud, R. , Allesarido, R. , Urvoy, T. & Clerot, F.
 in [Random Forest for the Contextual Bandit Problem](https://arxiv.org/pdf/1504.06952.pdf)
 
-The orignal version was only designed for use with binary variables only.
-Additions have been made to allow for continuous and categorical variables,
-and a statistical test has been added to each feature-value split to ensure only statistically significant results are used.
+The orignal version was only designed for use with binary variables only however, 
+additions have been made to allow for continuous and categorical variables.
+A statistical test has also been added to each feature-value split to ensure only statistically significant results are used.
 
 The tree consists of nodes which will choose the best feature and value to split on according to expected maximum reward when using the variable to select the best action.
 
